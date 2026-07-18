@@ -64,15 +64,21 @@ def should_revise(state: AdCopyState) -> str:
 
 
 def revise_draft(state: AdCopyState) -> AdCopyState:
-    """Inject review feedback and regenerate."""
     req = state["request"].copy()
     issues = state["review"].get("issues", [])
     suggestions = state["review"].get("suggestions", [])
-    req["key_benefits"] = req.get("key_benefits", []) + [
-        f"[REVISION NEEDED] Issues: {'; '.join(issues)}. Suggestions: {'; '.join(suggestions)}"
-    ]
-    return generate_draft({**state, "request": req})
 
+    feedback = (
+        f"[REVISION NEEDED] Issues: {'; '.join(issues)}. "
+        f"Suggestions: {'; '.join(suggestions)}"
+    )
+
+    existing = req.get("key_benefits", "")
+    if isinstance(existing, list):
+        existing = ", ".join(str(x) for x in existing)
+
+    req["key_benefits"] = f"{existing}. {feedback}".strip(". ")
+    return generate_draft({**state, "request": req})
 
 def finalize_ad_copy(state: AdCopyState) -> AdCopyState:
     draft = state["draft"]
@@ -180,9 +186,15 @@ def revise_commercial(state: CommercialState) -> CommercialState:
     req = state["request"].copy()
     issues = state["review"].get("issues", [])
     suggestions = state["review"].get("suggestions", [])
-    req["key_benefits"] = req.get("key_benefits", "") + f" [REVISION: {'; '.join(issues + suggestions)}]"
-    return generate_commercial_draft({**state, "request": req})
 
+    feedback = f"[REVISION: {'; '.join(issues + suggestions)}]"
+
+    existing = req.get("key_benefits", "")
+    if isinstance(existing, list):
+        existing = ", ".join(str(x) for x in existing)
+
+    req["key_benefits"] = f"{existing} {feedback}".strip()
+    return generate_commercial_draft({**state, "request": req})
 
 def finalize_commercial(state: CommercialState) -> CommercialState:
     draft = state["draft"]
@@ -221,6 +233,7 @@ def build_commercial_graph() -> StateGraph:
     graph.add_edge("finalize", END)
 
     return graph.compile()
+
 
 
 async def run_commercial_graph(request: CommercialScriptRequest) -> CommercialScriptResponse:
